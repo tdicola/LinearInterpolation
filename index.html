@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html class="no-js">
+    <head>
+        <title>Linear Interpolation</title>
+        <link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+        </style>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+        <script type="text/x-mathjax-config">
+	        MathJax.Hub.Config({
+	          showProcessingMessages: false
+	        });
+        </script>
+        <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=AM_HTMLorMML-full"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5/dat.gui.min.js"></script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h1>Linear Interpolation</h1>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>Demo</h3>
+                    <p>The position of the ball along the axis is determined
+                    with linear interpolation.  As the `x` value moves from 0 to 1
+                    the `y` value (ball position) moves from `y_0` to `y_1`.
+                    </p>
+                    <canvas id="graph"></canvas>
+                    <p>Try dragging the slider below to change the `x` value
+                    and watch the ball move along the axis as the `y` value changes.
+                    Change the `y_0` and `y_1` values to start and stop the ball
+                    at different positions too!
+                    </p>
+                    <div id="controls"></div>
+                </div>
+                <div class="col-md-6">
+                    <h3>Equation</h3>
+                    <p>Below is the equation for linear interpolation in one dimension.
+                    Notice how the solution steps change as the `x` value changes.</p>
+                    <div id="equations">
+                        <h4>Given the values:</h4>
+                        <h4 id="var-values"></h4>
+                        <h4>Solve for `y` (ball position):</h4>
+                        <h4>`y = y_0 + (y_1 - y_0)*((x - x_0)/(x_1 - x_0))`</h4>
+                        <h4 id="solve-1"></h4>
+                        <h4 id="solve-2"></h4>
+                        <h4 id="solve-3"></h4>
+                        <h4 id="solve-4"></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script type="text/processing" data-processing-target="graph">
+        void setup()
+        {
+            size(450,65);
+            PFont fontA = loadFont("helvetica");
+            textFont(fontA, 14);
+        }
+
+        void lerp(x, x0, x1, y0, y1) {
+            return y0 + (y1 - y0)*((x - x0)/(x1 - x0));
+        }
+
+        void draw(){
+            // Clear background and set black drawing color.
+            background(255);
+            fill(0);
+            stroke(0);
+            // Graph configuration.
+            var padding = 25;
+            var graphWidth = width-(padding*2);
+            // Draw graph scale.
+            var scaleY = height-30;
+            line(padding, scaleY, padding+graphWidth, scaleY);
+            // Draw scale ticks, 5 evenly spaced.
+            for (var i = 0; i < 5; ++i) {
+                var tickX = i*(graphWidth/5);
+                line(padding+tickX, scaleY-5, padding+tickX, scaleY+5);
+                text(tickX, padding+tickX, scaleY+20);
+            }
+            line(padding+graphWidth, scaleY-5, padding+graphWidth, scaleY+5);
+            text(graphWidth, padding+graphWidth, scaleY+20);
+            // Draw ball.
+            fill(255,0,0);
+            stroke(255,0,0);
+            var pos = lerp(window.x, 0.0, 1.0, window.y0, window.y1);
+            ellipse(padding+pos, 15, 20, 20);
+        }
+    </script>
+    <script>
+        // Initial variable values.
+        window.x = 0.01;
+        window.y0 = 0;
+        window.y1 = 400;
+
+        // Round number to arbitrary number of decimals.
+        // Taken from StackOverflow: http://stackoverflow.com/a/21323330
+        function round(value, exp) {
+            if (typeof exp === 'undefined' || +exp === 0)
+                return Math.round(value);
+
+            value = +value;
+            exp  = +exp;
+
+            if (isNaN(value) || !(typeof exp === 'number' && exp % 1 === 0))
+                return NaN;
+
+            // Shift
+            value = value.toString().split('e');
+            value = Math.round(+(value[0] + 'e' + (value[1] ? (+value[1] + exp) : exp)));
+
+            // Shift back
+            value = value.toString().split('e');
+            return +(value[0] + 'e' + (value[1] ? (+value[1] - exp) : -exp));
+        }
+
+        // Update and redraw equations with latest variable values.
+        function updateEquations() {
+            // Update equation values.
+            var x = round(window.x, 3);
+            $("#var-values").text("`x = " + x +
+                                  ", x_0 = 0, x_1 = 1, y_0 = " + window.y0 +
+                                  ", y_1 = " + window.y1 +
+                                  "`");
+            $("#solve-1").text("`y = " + window.y0 +
+                               " + (" + window.y1 +
+                               " - " + window.y0 +
+                               ")*((" + x +
+                               "- 0)/(1 - 0))`");
+            $("#solve-2").text("`y = " + window.y0 +
+                               " + " + (window.y1-window.y0) +
+                               " * " + x +
+                               "`");
+            var solved = round((window.y1-window.y0)*window.x,3);
+            $("#solve-3").text("`y = " + window.y0 +
+                               " + " + solved +
+                               "`");
+            solved = round((window.y1-window.y0)*window.x+window.y0,3);
+            $("#solve-4").text("`y = " + solved +
+                               "`");
+            // Tell MathJax to redraw equations.
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"equations"]);
+        }
+
+        // Code run when all dependencies are loaded.
+        $(document).ready(function() {
+            // Create dat.gui controls.
+            var gui = new dat.GUI({ autoPlace: false });
+            gui.add(window, "x", 0.0, 1.0).onChange(updateEquations);
+            gui.add(window, "y0").onChange(updateEquations);
+            gui.add(window, "y1").onChange(updateEquations);
+            // Move controls to below graph.
+            $("#controls").append(gui.domElement);
+            // Redraw equations.
+            updateEquations();
+        });
+    </script>
+</html>
