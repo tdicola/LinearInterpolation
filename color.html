@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html class="no-js">
+    <head>
+        <title>Linear Interpolation</title>
+        <link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+        </style>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.2/raphael-min.js"></script>
+        <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              showProcessingMessages: false
+            });
+        </script>
+        <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=AM_HTMLorMML-full"></script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h1>Color Interpolation Demo</h1>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <p>Drag the green ball below to change the time value `t` between
+                    `0` and `1`.  Notice how the interpolated color changes based on
+                    the value of `t`.  See the equations on the right to understand
+                    how the color's red, green, and blue components are calculated
+                    using linear interpolation of of `t` between a start and end color.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h4 id="time-var">Time `t = 0.00`</h4>
+                        </div>
+                        <div class="col-md-8">
+                            <div id="timegraph"></div>
+                        </div> 
+                    </div>
+                    <div id="colorgraph"></div>
+                </div>
+                <div class="col-md-6">
+                    <h4>Assume these values:</h4>
+                    <h4>`Red_{s tart} = 255, Green_{s tart} = 128, Blue_{s tart} = 0`</h4>
+                    <h4>`Red_{end} = 128, Green_{end} = 0, Blue_{end} = 255`</h4>
+                    <h4>`t_{s tart} = 0, t_{end} = 1`</h4>
+                    <h4>Simplify interpolated color equation:</h4>
+                    <h4>`Colo r = Colo r_{s tart} + (Colo r_{end} - Colo r_{s tart}) * ((t - t_{s tart})/(t_{end} - t_{s tart}))`</h4>
+                    <h4>`Colo r = Colo r_{s tart} + (Colo r_{end} - Colo r_{s tart}) * ((t - 0)/(1 - 0))`</h4>
+                    <h4>`Colo r = Colo r_{s tart} + (Colo r_{end} - Colo r_{s tart}) * t`</h4>
+                    <h4>Solve for red, green, blue:</h4>
+                    <div id="equations">
+                        <h4 id="solve-r"></h4>
+                        <!--<h4>`Col_G = Start_G + (End_G - Start_G) * t`</h4>-->
+                        <h4 id="solve-g"></h4>
+                        <!--<h4>`Col_B = Start_B + (End_B - Start_B) * t`</h4>-->
+                        <h4 id="solve-b"></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        // Linear interpolation of y value from given x, x0, x1, y0, and y1 values.
+        function lerp(x, x0, x1, y0, y1) {
+            return y0+(y1-y0)*((x-x0)/(x1-x0));
+        }
+
+        // Draw a graph with a ball at some point on axis.
+        function ballGraph(id, width, color, x0, x1, tickCount) {
+            // Constants that adjust the graph rendering.
+            var height = 65;
+            var radius = 10;
+            var xpadding = 25;
+            var xmin = xpadding;
+            var xmax = xmin+width;
+            var scaleY = height-30;
+            // Create canvas for drawing.
+            var paper = Raphael(id, width+2*xpadding, height);
+            // Create ball.
+            var ball = paper.circle(xmin, 15, radius);
+            ball.attr({fill: color, stroke: color});
+            // Create scale and ticks.
+            paper.path(['M', xmin, scaleY, 'L', xmax, scaleY]);
+            for (var i = 0; i <= tickCount; ++i) {
+                var tickX = Math.floor(i*width/tickCount);
+                paper.path(['M', xpadding+tickX, scaleY-5, 'L', xpadding+tickX, scaleY+5]);
+                var label = x0 + i*((x1-x0)/tickCount);
+                paper.text(xpadding+tickX, scaleY+20, label.toFixed(1))
+                    .attr('font-size', '14px');
+            }
+            // Return an object with some attributes and functions to control the ball graph.
+            return {
+                'ball': ball,
+                setx: function(x) {
+                    ball.attr('cx', Math.floor(xpadding+x));
+                },
+                getx: function() {
+                    return Number(ball.attr('cx'))-xpadding;
+                }
+            };
+        }
+
+        // Draw graph with gradient bar at bottom, color circle in the middle,
+        // and line going from color circle to point on the gradient bar base
+        // on a position.
+        function colorGraph(id, width, startColor, endColor) {
+            var height = 200;
+            var padding = 25;
+            var barWidth = width-2*padding;
+            var colorY = 60
+            // Create drawing area and draw basic shapes for the graph.
+            var paper = Raphael('colorgraph', width, 200);
+            var bar = paper.rect(padding, 120, barWidth, 60)
+                        .attr({fill: '0-' + startColor.hex + '-' + endColor.hex, 
+                               'stroke-width': 0});
+            var color = paper.circle(width/2, colorY, 35)
+                        .attr({fill: '#f00', stroke: '#000', 'stroke-width': 2});
+            var line = paper.path(['M', width/2, colorY, 'L', padding, 120, 'L', padding, 180])
+                        .attr({stroke: '#000', 'stroke-width': 2});
+            // Force color circle above line for correct clipping.
+            color.toFront();
+
+            // Update color circle to have color of gradient at position t (where
+            // t is a value value 0 to 1.0) and draw line from color at position t 
+            // on the gradient bar up to the color circle.
+            var selectColor = function(t) {
+                // Update line path.
+                var colorX = Math.floor(padding+t*barWidth);
+                line.attr('path', ['M', width/2, colorY, 'L', colorX, 120, 'L', colorX, 180]);
+                // Update circle color by interpolating in between color.
+                var colorR = lerp(t, 0, 1.0, startColor.r, endColor.r);
+                var colorG = lerp(t, 0, 1.0, startColor.g, endColor.g);
+                var colorB = lerp(t, 0, 1.0, startColor.b, endColor.b);
+                color.attr('fill', Raphael.rgb(colorR, colorG, colorB));
+            }
+
+            // Start pointing at position 0.
+            selectColor(0.0);
+
+            // Return object with methods to adjust the color graph line position.
+            return {
+                'selectColor': selectColor
+            }
+        }
+
+        // Update the equations on the page with new values.
+        function updateEquations(t, startColor, endColor) {
+            $('#time-var').text('Time `t = ' + t.toFixed(2) + '`');
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"time-var"]);
+            var r = lerp(t, 0.0, 1.0, startColor.r, endColor.r);
+            $('#solve-r').text('`Red = ' + startColor.r + 
+                               '+(' + endColor.r + '-' + startColor.r + 
+                               ')*' + t.toFixed(2) + '=' + Math.floor(r) + '`');
+            var g = lerp(t, 0.0, 1.0, startColor.g, endColor.g);
+            $('#solve-g').text('`Green = ' + startColor.g + 
+                               '+(' + endColor.g + '-' + startColor.g + 
+                               ')*' + t.toFixed(2) + '=' + Math.floor(g) + '`');
+            var b = lerp(t, 0.0, 1.0, startColor.b, endColor.b);
+            $('#solve-b').text('`Blue = ' + startColor.r + 
+                               '+(' + endColor.b + '-' + startColor.b + 
+                               ')*' + t.toFixed(2) + '=' + Math.floor(b) + '`');
+            // Tell MathJax to redraw equations.
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"equations"]);
+        }
+
+        // Code run when all dependencies are loaded.
+        $(document).ready(function() {
+
+            var startColor = Raphael.getRGB('#ff8000');
+            var endColor = Raphael.getRGB('#8000ff');
+            
+            var time = ballGraph('timegraph', 200, '#00ff00', 0.0, 1.0, 2);
+
+            var color = colorGraph('colorgraph', 450, startColor, endColor);
+
+            time.ball.drag(
+                function(dx,dy) {
+                    var x = this.ox+dx;
+                    var t = x/200.0;
+                    if (t >= 0.0 && t <= 1.0) {
+                        time.setx(x);
+                        color.selectColor(t);
+                        updateEquations(t, startColor, endColor);
+                    }
+                },
+                function(x,y) {
+                    this.ox = time.getx();
+                }
+            );          
+            
+            updateEquations(0, startColor, endColor);
+        });
+    </script>
+</html>
