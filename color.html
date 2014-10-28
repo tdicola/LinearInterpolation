@@ -3,8 +3,7 @@
     <head>
         <title>Linear Interpolation</title>
         <link href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-        </style>
+        <link href="http://cdnjs.cloudflare.com/ajax/libs/spectrum/1.3.0/css/spectrum.min.css" rel="stylesheet">
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.2/raphael-min.js"></script>
@@ -14,6 +13,7 @@
             });
         </script>
         <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=AM_HTMLorMML-full"></script>
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/spectrum/1.3.0/js/spectrum.min.js"></script>
     </head>
     <body>
         <div class="container">
@@ -39,11 +39,23 @@
                         </div> 
                     </div>
                     <div id="colorgraph"></div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <h4>Start color:</h4>
+                            <input type="text" id="start-color" value="#ff8000"/>
+                        </div>
+                        <div class="col-md-3">
+                            <h4>End color:</h4>
+                            <input type="text" id="end-color" value="#8000ff"/>
+                        </div>
+                    </div>
                 </div>
                 <div class="col-md-6">
                     <h4>Assume these values:</h4>
-                    <h4>`Red_{s tart} = 255, Green_{s tart} = 128, Blue_{s tart} = 0`</h4>
-                    <h4>`Red_{end} = 128, Green_{end} = 0, Blue_{end} = 255`</h4>
+                    <div id="values">
+                        <h4 id="values-start">`Red_{s tart} = 255, Green_{s tart} = 128, Blue_{s tart} = 0`</h4>
+                        <h4 id="values-end">`Red_{end} = 128, Green_{end} = 0, Blue_{end} = 255`</h4>
+                    </div>
                     <h4>`t_{s tart} = 0, t_{end} = 1`</h4>
                     <h4>Simplify interpolated color equation:</h4>
                     <h4>`Colo r = Colo r_{s tart} + (Colo r_{end} - Colo r_{s tart}) * ((t - t_{s tart})/(t_{end} - t_{s tart}))`</h4>
@@ -105,11 +117,14 @@
         // Draw graph with gradient bar at bottom, color circle in the middle,
         // and line going from color circle to point on the gradient bar base
         // on a position.
-        function colorGraph(id, width, startColor, endColor) {
+        function colorGraph(id, width, start, end) {
             var height = 200;
             var padding = 25;
             var barWidth = width-2*padding;
             var colorY = 60
+            var startColor = start;
+            var endColor = end;
+            var currentT = 0.0;
             // Create drawing area and draw basic shapes for the graph.
             var paper = Raphael('colorgraph', width, 200);
             var bar = paper.rect(padding, 120, barWidth, 60)
@@ -126,6 +141,7 @@
             // t is a value value 0 to 1.0) and draw line from color at position t 
             // on the gradient bar up to the color circle.
             var selectColor = function(t) {
+                currentT = t;
                 // Update line path.
                 var colorX = Math.floor(padding+t*barWidth);
                 line.attr('path', ['M', width/2, colorY, 'L', colorX, 120, 'L', colorX, 180]);
@@ -141,7 +157,13 @@
 
             // Return object with methods to adjust the color graph line position.
             return {
-                'selectColor': selectColor
+                'selectColor': selectColor,
+                setColors: function(start, end) {
+                    startColor = start;
+                    endColor = end;
+                    bar.attr('fill', '0-' + startColor.hex + '-' + endColor.hex);
+                    selectColor(currentT);
+                }
             }
         }
 
@@ -165,8 +187,28 @@
             MathJax.Hub.Queue(["Typeset",MathJax.Hub,"equations"]);
         }
 
+        function updateValues(startColor, endColor) {
+            $('#values-start').text('`Red_{s tart} = ' + startColor.r +
+                                    ', Green_{s tart} = ' + startColor.g +
+                                    ', Blue_{s tart} = ' + startColor.b + '`');
+            $('#values-end').text('`Red_{end} = ' + endColor.r +
+                                  ', Green_{end} = ' + endColor.g +
+                                  ', Blue_{end} = ' + endColor.b + '`');
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"values"]);
+        }
+
         // Code run when all dependencies are loaded.
         $(document).ready(function() {
+            // TODO: This is super ugly and should be refactored into a clean
+            // separation of state and behavior.  Have one spot to hold the current
+            // color and time which everything references.
+
+            $('#start-color').spectrum({
+                color: '#ff8000'
+            });
+            $('#end-color').spectrum({
+                color: '#8000ff'
+            });
 
             var startColor = Raphael.getRGB('#ff8000');
             var endColor = Raphael.getRGB('#8000ff');
@@ -175,11 +217,14 @@
 
             var color = colorGraph('colorgraph', 450, startColor, endColor);
 
+            var currentT = 0;
+
             time.ball.drag(
                 function(dx,dy) {
                     var x = this.ox+dx;
                     var t = x/200.0;
                     if (t >= 0.0 && t <= 1.0) {
+                        currentT = t;
                         time.setx(x);
                         color.selectColor(t);
                         updateEquations(t, startColor, endColor);
@@ -190,7 +235,22 @@
                 }
             );          
             
-            updateEquations(0, startColor, endColor);
+            $('#start-color').change(function() {
+                startColor = Raphael.getRGB($('#start-color').val());
+                endColor = Raphael.getRGB($('#end-color').val());
+                color.setColors(startColor, endColor);
+                updateValues(startColor, endColor);
+                updateEquations(currentT, startColor, endColor);
+            });
+            $('#end-color').change(function() {
+                startColor = Raphael.getRGB($('#start-color').val());
+                endColor = Raphael.getRGB($('#end-color').val());
+                color.setColors(startColor, endColor);
+                updateValues(startColor, endColor);
+                updateEquations(currentT, startColor, endColor);
+            });
+
+            updateEquations(currentT, startColor, endColor);
         });
     </script>
 </html>
