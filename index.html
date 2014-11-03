@@ -7,14 +7,14 @@
         </style>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.2.0/js/bootstrap.min.js"></script>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>
+        <!--<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/processing.js/1.4.8/processing.min.js"></script>-->
+        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.2/raphael-min.js"></script>
         <script type="text/x-mathjax-config">
 	        MathJax.Hub.Config({
 	          showProcessingMessages: false
 	        });
         </script>
         <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=AM_HTMLorMML-full"></script>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5/dat.gui.min.js"></script>
     </head>
     <body>
         <div class="container">
@@ -25,28 +25,46 @@
             </div>
             <div class="row">
                 <div class="col-md-6">
-                    <h3>Demo</h3>
                     <p>The position of the ball along the axis is determined
-                    with linear interpolation.  As the `x` value moves from 0 to 1
-                    the `y` value (ball position) moves from `y_0` to `y_1`.
+                    with linear interpolation.  As the time value `t` value moves from 0 to 1
+                    the `y` value (ball position) moves from `y_{s tart}` to `y_{end}`.
                     </p>
-                    <canvas id="graph"></canvas>
-                    <p>Try dragging the slider below to change the `x` value
+                    <p>Try dragging the green ball below to change the `t` value
                     and watch the ball move along the axis as the `y` value changes.
-                    Change the `y_0` and `y_1` values to start and stop the ball
+                    Change the `y_{s tart}` and `y_{end}` values to start and stop the ball
                     at different positions too!
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h4 id="time-var">Time `t = 0.00`</h4>
+                        </div>
+                        <div class="col-md-8">
+                            <div id="timegraph"></div>
+                        </div> 
+                    </div>
+                    <div id="graph"></div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <h4>`y_{s tart} = `</h4>
+                        </div>
+                        <div class="col-md-2">
+                            <input id="y0" type="text" class="form-control" value="0">
+                        </div> 
+                        <div class="col-md-2 col-md-offset-2">
+                            <h4>`y_{end} = `</h4>
+                        </div>
+                        <div class="col-md-2">
+                            <input id="y1" type="text" class="form-control" value="400">
+                        </div> 
+                    </div>
                     </p>
                     <div id="controls"></div>
                 </div>
                 <div class="col-md-6">
-                    <h3>Equation</h3>
-                    <p>Below is the equation for linear interpolation in one dimension.
-                    Notice how the solution steps change as the `x` value changes.</p>
                     <div id="equations">
-                        <h4>Given the values:</h4>
+                        <h4>Assume these values:</h4>
                         <h4 id="var-values"></h4>
                         <h4>Solve for `y` (ball position):</h4>
-                        <h4>`y = y_0 + (y_1 - y_0)*((x - x_0)/(x_1 - x_0))`</h4>
+                        <h4>`y = y_{s tart} + (y_{end} - y_{s tart})*((t - t_{s tart})/(t_{end} - t_{s tart}))`</h4>
                         <h4 id="solve-1"></h4>
                         <h4 id="solve-2"></h4>
                         <h4 id="solve-3"></h4>
@@ -95,54 +113,70 @@
         }
     </script>
     <script>
-        // Initial variable values.
-        window.x = 0.01;
-        window.y0 = 0;
-        window.y1 = 400;
+        // Linear interpolation of y value from given x, x0, x1, y0, and y1 values.
+        function lerp(x, x0, x1, y0, y1) {
+            return y0+(y1-y0)*((x-x0)/(x1-x0));
+        }
 
-        // Round number to arbitrary number of decimals.
-        // Taken from StackOverflow: http://stackoverflow.com/a/21323330
-        function round(value, exp) {
-            if (typeof exp === 'undefined' || +exp === 0)
-                return Math.round(value);
-
-            value = +value;
-            exp  = +exp;
-
-            if (isNaN(value) || !(typeof exp === 'number' && exp % 1 === 0))
-                return NaN;
-
-            // Shift
-            value = value.toString().split('e');
-            value = Math.round(+(value[0] + 'e' + (value[1] ? (+value[1] + exp) : exp)));
-
-            // Shift back
-            value = value.toString().split('e');
-            return +(value[0] + 'e' + (value[1] ? (+value[1] - exp) : -exp));
+        // Draw a graph with a ball at some point on axis.
+        function ballGraph(id, width, color, x0, x1, tickCount) {
+            // Constants that adjust the graph rendering.
+            var height = 65;
+            var radius = 10;
+            var xpadding = 25;
+            var xmin = xpadding;
+            var xmax = xmin+width;
+            var scaleY = height-30;
+            // Create canvas for drawing.
+            var paper = Raphael(id, width+2*xpadding, height);
+            // Create ball.
+            var ball = paper.circle(xmin, 15, radius);
+            ball.attr({fill: color, stroke: color});
+            // Create scale and ticks.
+            paper.path(['M', xmin, scaleY, 'L', xmax, scaleY]);
+            for (var i = 0; i <= tickCount; ++i) {
+                var tickX = Math.floor(i*width/tickCount);
+                paper.path(['M', xpadding+tickX, scaleY-5, 'L', xpadding+tickX, scaleY+5]);
+                var label = x0 + i*((x1-x0)/tickCount);
+                paper.text(xpadding+tickX, scaleY+20, label.toFixed(1))
+                    .attr('font-size', '14px');
+            }
+            // Return an object with some attributes and functions to control the ball graph.
+            return {
+                'ball': ball,
+                setx: function(x) {
+                    ball.attr('cx', Math.floor(xpadding+x));
+                },
+                getx: function() {
+                    return Number(ball.attr('cx'))-xpadding;
+                }
+            };
         }
 
         // Update and redraw equations with latest variable values.
-        function updateEquations() {
+        function updateEquations(t, y0, y1) {
+            $('#time-var').text('Time `t = ' + t.toFixed(2) + '`');
+            MathJax.Hub.Queue(["Typeset",MathJax.Hub,"time-var"]);
             // Update equation values.
-            var x = round(window.x, 3);
-            $("#var-values").text("`x = " + x +
-                                  ", x_0 = 0, x_1 = 1, y_0 = " + window.y0 +
-                                  ", y_1 = " + window.y1 +
+            var x = t.toFixed(2);
+            $("#var-values").text("`t = " + x +
+                                  ", t_{s tart} = 0, t_{end} = 1, y_{s tart} = " + y0 +
+                                  ", y_{end} = " + y1 +
                                   "`");
-            $("#solve-1").text("`y = " + window.y0 +
-                               " + (" + window.y1 +
-                               " - " + window.y0 +
+            $("#solve-1").text("`y = " + y0 +
+                               " + (" + y1 +
+                               " - " + y0 +
                                ")*((" + x +
                                "- 0)/(1 - 0))`");
-            $("#solve-2").text("`y = " + window.y0 +
-                               " + " + (window.y1-window.y0) +
+            $("#solve-2").text("`y = " + y0 +
+                               " + " + (y1-y0) +
                                " * " + x +
                                "`");
-            var solved = round((window.y1-window.y0)*window.x,3);
-            $("#solve-3").text("`y = " + window.y0 +
+            var solved = Number((y1-y0)*t).toFixed(0);
+            $("#solve-3").text("`y = " + y0 +
                                " + " + solved +
                                "`");
-            solved = round((window.y1-window.y0)*window.x+window.y0,3);
+            solved = Number((y1-y0)*t+y0).toFixed(0);
             $("#solve-4").text("`y = " + solved +
                                "`");
             // Tell MathJax to redraw equations.
@@ -151,15 +185,44 @@
 
         // Code run when all dependencies are loaded.
         $(document).ready(function() {
-            // Create dat.gui controls.
-            var gui = new dat.GUI({ autoPlace: false });
-            gui.add(window, "x", 0.0, 1.0).onChange(updateEquations);
-            gui.add(window, "y0").onChange(updateEquations);
-            gui.add(window, "y1").onChange(updateEquations);
-            // Move controls to below graph.
-            $("#controls").append(gui.domElement);
+            var t = 0.0;
+            var y0 = 0.0;
+            var y1 = 400.0;
+
+            var time = ballGraph('timegraph', 200, '#00ff00', 0.0, 1.0, 2);
+
+            var graph = ballGraph('graph', 400, '#ff0000', 0.0, 400.0, 4);
+
+            time.ball.drag(
+                function(dx,dy) {
+                    var x = this.ox+dx;
+                    var t = x/200.0;
+                    if (t >= 0.0 && t <= 1.0) {
+                        currentT = t;
+                        time.setx(x);
+                        graph.setx(lerp(t, 0.0, 1.0, y0, y1));
+                        updateEquations(t, y0, y1);
+                    }
+                },
+                function(x,y) {
+                    this.ox = time.getx();
+                }
+            );
+
+            $('#y0').change(function() {
+                y0 = Number($('#y0').val());
+                graph.setx(lerp(t, 0.0, 1.0, y0, y1));
+                updateEquations(t, y0, y1);
+            });
+
+            $('#y1').change(function() {
+                y1 = Number($('#y1').val());
+                graph.setx(lerp(t, 0.0, 1.0, y0, y1));
+                updateEquations(t, y0, y1);
+            });
+            
             // Redraw equations.
-            updateEquations();
+            updateEquations(t, y0, y1);
         });
     </script>
 </html>
